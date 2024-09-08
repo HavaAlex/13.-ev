@@ -40,7 +40,7 @@ namespace _2024_09_05_aknakereso2
             atmeretezes(dataGridView1);
             bombak = new List<List<bool>>();
             dataGridView1.MouseMove += egerjonmegy;
-            dataGridView1.Enabled = true;
+            dataGridView1.Enabled = false;
             Restart.Visible = false;
             
         }
@@ -125,6 +125,7 @@ namespace _2024_09_05_aknakereso2
                     dataGridView1.Rows[j].Cells[i].Value = "?";
                 }
             }
+            dataGridView1.Enabled = true;
             Start.Visible = false;
             Restart.Visible = true;
         }
@@ -170,40 +171,36 @@ namespace _2024_09_05_aknakereso2
         }
         static void palyacsinalas(NumericUpDown m, NumericUpDown sz, NumericUpDown db)
         {
-            for (int i = 0; i < sz.Value; i++)
+            bombak = new List<List<bool>>();
+            for (int i = 0; i < m.Value; i++)
             {
-                List<bool> sl = new List<bool>();
-                for (int j = 0; j < m.Value; j++)
+                List<bool> sor = new List<bool>();
+                for (int j = 0; j < sz.Value; j++)
                 {
-                    bool sb = false;
-                    sl.Add(sb);
+                    sor.Add(false);
                 }
-                bombak.Add(sl);
+                bombak.Add(sor);
             }
+
             Random r = new Random();
-            aknak(Convert.ToInt32(m.Value), Convert.ToInt32(sz.Value), Convert.ToInt32(db.Value),r );
+            aknak(Convert.ToInt32(m.Value), Convert.ToInt32(sz.Value), Convert.ToInt32(db.Value), r);
         }
         static void aknak(int m, int sz, int db, Random r)
         {
-            
-            int k = db;
-            if (k == 0)
-            {
+            int bombakHelyszam = 0;
+            List<(int, int)> elhelyezettBombak = new List<(int, int)>();
 
-            }
-            else
+            while (bombakHelyszam < db)
             {
-                int x = r.Next(0, sz );
-                int y = r.Next(0, m );
-                if (!bombak[x][y])
+                int x = r.Next(0, sz); // Szélesség (oszlop)
+                int y = r.Next(0, m); // Magasság (sor)
+
+                // Ellenőrizzük, hogy a bomba már el van-e helyezve
+                if (!bombak[y][x])
                 {
-                    bombak[x][y] = true;
-                    k--;
-                    aknak(m, sz, k,r);
-                }
-                else 
-                { 
-                    aknak(m, sz, k, r);
+                    bombak[y][x] = true;
+                    elhelyezettBombak.Add((y, x)); // Nyomon követjük a már elhelyezett bombákat
+                    bombakHelyszam++;
                 }
             }
         }
@@ -242,16 +239,21 @@ namespace _2024_09_05_aknakereso2
 
         private void dataGridView1_CellClick_1(object sender, DataGridViewCellEventArgs e)
         {
-            wincheck(dataGridView1, Convert.ToInt32(mineNumber.Value));
-            int szomszedosc4 = 0;
-            if (!bombak[e.RowIndex][e.ColumnIndex] && bombavanmellete(e.ColumnIndex, e.RowIndex,out szomszedosc4))
+            if (e.RowIndex < 0 || e.ColumnIndex < 0 || e.RowIndex >= bombak.Count || e.ColumnIndex >= bombak[0].Count)
             {
+                return; // Kilépünk, ha a kattintás érvénytelen indexre történt
+            }
+            wincheck(dataGridView1, Convert.ToInt32(mineNumber.Value));
+            int szomszedosBombakSzama = 0;
 
-                dataGridView1.Rows[e.RowIndex].Cells[e.ColumnIndex].Value = Convert.ToString(szomszedosc4);
+            if (!bombak[e.RowIndex][e.ColumnIndex] && bombavanmellete(e.ColumnIndex, e.RowIndex, out szomszedosBombakSzama))
+            {
+                dataGridView1.Rows[e.RowIndex].Cells[e.ColumnIndex].Value = Convert.ToString(szomszedosBombakSzama);
             }
             else if (!bombak[e.RowIndex][e.ColumnIndex])
             {
                 dataGridView1.Rows[e.RowIndex].Cells[e.ColumnIndex].Value = "";
+                FedezzFelSzomszedokat(e.RowIndex, e.ColumnIndex); 
             }
             else
             {
@@ -262,20 +264,22 @@ namespace _2024_09_05_aknakereso2
         }
         static void wincheck(DataGridView dataGridView1, int db)
         {
-            int maradekcellaszam = 0;
-            for (int i = 0; i < bombak.Count; i++){
+            int maradekCellaszam = 0;
+
+            for (int i = 0; i < bombak.Count; i++)
+            {
                 for (int j = 0; j < bombak[i].Count; j++)
                 {
-                    if(dataGridView1.Rows[j].Cells[i].Value ==  "?")
+                    if (dataGridView1.Rows[i].Cells[j].Value.ToString() == "?")
                     {
-                        maradekcellaszam++;
+                        maradekCellaszam++;
                     }
                 }
             }
-            if(maradekcellaszam-1 ==db)
+            if (maradekCellaszam == db)
             {
                 dataGridView1.Enabled = false;
-                MessageBox.Show("Gratula győztél");
+                MessageBox.Show("Gratulálok, nyertél!");
             }
         }
         private void Restart_Click(object sender, EventArgs e)
@@ -284,6 +288,47 @@ namespace _2024_09_05_aknakereso2
             alaphelyzet(comboBox1, magassag, szelesseg, mineNumber, label1, label2, label3, dataGridView1, Restart);
             Start.Visible = true;
             
+        }
+        private void FedezzFelSzomszedokat(int rowIndex, int colIndex)
+        {
+            List<(int, int)> cellak = new List<(int, int)>();
+            cellak.Add((rowIndex, colIndex));
+
+            while (cellak.Count > 0)
+            {
+                (int r, int c) = cellak[0]; 
+                cellak.RemoveAt(0); 
+
+                if (r < 0 || c < 0 || r >= bombak.Count || c >= bombak[0].Count)
+                    continue; 
+
+                int szomszedosBombakSzama = 0; 
+
+                if (bombak[r][c] || bombavanmellete(c, r, out szomszedosBombakSzama))
+                {
+                    dataGridView1.Rows[r].Cells[c].Value = bombak[r][c] ? "BOMB!" : szomszedosBombakSzama.ToString();
+                }
+                else if (dataGridView1.Rows[r].Cells[c].Value.ToString() == "?")
+                {
+                    dataGridView1.Rows[r].Cells[c].Value = "";
+                    int[][] directions = new int[][]
+                    {
+                new int[] {-1, -1}, new int[] {0, -1}, new int[] {1, -1},
+                new int[] {-1, 0},                   new int[] {1, 0},
+                new int[] {-1, 1},  new int[] {0, 1},  new int[] {1, 1}
+                    };
+
+                    foreach (var dir in directions)
+                    {
+                        int newRow = r + dir[0];
+                        int newCol = c + dir[1];
+                        if (newRow >= 0 && newRow < bombak.Count && newCol >= 0 && newCol < bombak[0].Count && dataGridView1.Rows[newRow].Cells[newCol].Value.ToString() == "?")
+                        {
+                            cellak.Add((newRow, newCol));
+                        }
+                    }
+                }
+            }
         }
     }
 }
